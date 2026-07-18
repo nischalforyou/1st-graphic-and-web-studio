@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚡ Keyboard Warrior ⚡</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    min-height: 100vh;
+    background: linear-gradient(to bottom, #111827, #581c87, #000000);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Segoe UI', Tahoma, Verdana, sans-serif;
+    font-weight: bold;
+    color: white;
+    overflow-x: hidden;
+    padding: 1rem;
+  }
+
+  .bg-fx {
+    position: fixed;
+    inset: 0;
+    opacity: 0.2;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .bg-fx .blob {
+    position: absolute;
+    width: 24rem;
+    height: 24rem;
+    border-radius: 50%;
+    filter: blur(64px);
+  }
+  .bg-fx .blob.purple { top: 0; left: 0; background: #a855f7; }
+  .bg-fx .blob.red { bottom: 0; right: 0; background: #ef4444; }
+
+  .container {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 64rem;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 6vw, 3.75rem);
+    text-align: center;
+    margin-bottom: 2rem;
+    font-weight: 900;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Arena */
+  .arena {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 2rem;
+  }
+  .fighter {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .avatar {
+    font-size: clamp(5rem, 12vw, 8rem);
+    transition: transform 0.1s;
+    line-height: 1.2;
+  }
+  .avatar.attacking {
+    transform: scale(1.5);
+    animation: bounce 0.4s ease-in-out;
+  }
+  .fighter h2 {
+    font-size: clamp(1.25rem, 3vw, 1.875rem);
+    margin: 1rem 0 0.5rem;
+  }
+  .hp-bar {
+    width: 100%;
+    background: #1f2937;
+    border-radius: 9999px;
+    height: 2rem;
+    margin-bottom: 0.5rem;
+    overflow: hidden;
+  }
+  .hp-bar.player { border: 3px solid #3b82f6; }
+  .hp-bar.bot { border: 3px solid #ef4444; }
+  .hp-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+  .hp-fill.player { background: linear-gradient(to right, #60a5fa, #2563eb); }
+  .hp-fill.bot { background: linear-gradient(to right, #f87171, #dc2626); }
+
+  .combo {
+    font-size: clamp(1.25rem, 3vw, 1.875rem);
+    font-weight: 900;
+    animation: bounce 0.4s ease-in-out infinite;
+    visibility: hidden;
+  }
+  .combo.show { visibility: visible; }
+  .combo.player { color: #fde047; }
+  .combo.bot { color: #fca5a5; }
+
+  /* Moves panel */
+  .moves-panel {
+    background: #111827;
+    border: 2px solid #a855f7;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .moves-panel > p {
+    text-align: center;
+    color: #d8b4fe;
+    margin-bottom: 1rem;
+  }
+  .moves-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+  @media (min-width: 768px) {
+    .moves-grid { grid-template-columns: repeat(6, 1fr); }
+  }
+  .move-card {
+    background: linear-gradient(to bottom right, #7e22ce, #000);
+    border: 2px solid #c084fc;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+  .move-card:hover { border-color: #fde047; }
+  .move-card .icon { font-size: 1.5rem; margin-bottom: 0.25rem; }
+  .move-card .key { font-size: 0.75rem; font-weight: 900; color: #67e8f9; }
+  .move-card .name { font-size: 0.75rem; color: #d1d5db; }
+  .move-card .dmg { font-size: 0.75rem; color: #fde047; }
+
+  /* Combat log */
+  .log-panel {
+    background: rgba(0, 0, 0, 0.7);
+    border: 2px solid #a855f7;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    height: 10rem;
+    overflow-y: auto;
+    margin-bottom: 1.5rem;
+  }
+  .log-panel h3 {
+    font-size: 1.125rem;
+    color: #d8b4fe;
+    margin-bottom: 0.5rem;
+    font-weight: 900;
+  }
+  .log-panel p {
+    font-size: 0.85rem;
+    color: #d1d5db;
+    margin-bottom: 0.25rem;
+    font-family: 'Courier New', monospace;
+  }
+  .log-panel .empty { color: #6b7280; }
+
+  /* Game over */
+  .game-over {
+    background: linear-gradient(to right, #581c87, #000);
+    border: 4px solid #facc15;
+    border-radius: 0.5rem;
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  .game-over h2 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    margin-bottom: 1rem;
+    font-weight: 900;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  .game-over .msg { font-size: 1.25rem; margin-bottom: 1rem; }
+  .game-over .score { font-size: 0.9rem; color: #9ca3af; }
+
+  /* Buttons */
+  .buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  button {
+    font-family: inherit;
+    font-weight: 900;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: linear-gradient(to right, #facc15, #ca8a04);
+    color: black;
+    padding: 0.75rem 2rem;
+    font-size: 1.125rem;
+  }
+  .btn-primary:hover { transform: scale(1.05); background: linear-gradient(to right, #eab308, #a16207); }
+  .btn-primary:active { transform: scale(0.95); }
+  .btn-secondary {
+    background: #374151;
+    color: white;
+    padding: 0.75rem 1.5rem;
+    font-weight: bold;
+  }
+  .btn-secondary:hover { background: #4b5563; }
+  .btn-skip {
+    background: #dc2626;
+    color: white;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    margin-top: 1rem;
+  }
+  .btn-skip:hover { background: #b91c1c; }
+
+  /* Tutorial overlay */
+  .tutorial-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    padding: 1rem;
+  }
+  .tutorial-box {
+    background: linear-gradient(to bottom right, #581c87, #000);
+    border: 4px solid #facc15;
+    border-radius: 0.75rem;
+    padding: 2rem;
+    max-width: 28rem;
+    text-align: center;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  .tutorial-box h2 { font-size: 2.25rem; margin-bottom: 1.5rem; }
+  .tutorial-box .text { font-size: 1.125rem; margin-bottom: 1rem; color: #d1d5db; }
+  .tutorial-box .try-move {
+    background: #1e3a8a;
+    border: 2px solid #22d3ee;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .tutorial-box .try-move .label { font-size: 1.5rem; margin-bottom: 0.5rem; }
+  .tutorial-box .try-move .key {
+    font-size: 3rem;
+    font-weight: 900;
+    color: #67e8f9;
+    margin-bottom: 0.5rem;
+  }
+  .tutorial-box .try-move .hint { font-size: 0.875rem; color: #a5f3fc; }
+  .tutorial-box .instruction {
+    font-size: 1.25rem;
+    color: #fde047;
+    margin-bottom: 1.5rem;
+    animation: bounce 1s ease-in-out infinite;
+  }
+
+  .instructions {
+    text-align: center;
+    margin-top: 2rem;
+    color: #9ca3af;
+    font-size: 0.875rem;
+  }
+  .instructions p { margin-bottom: 0.5rem; }
+
+  .hidden { display: none !important; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-15px); }
+  }
+</style>
+</head>
+<body>
+  <div class="bg-fx">
+    <div class="blob purple"></div>
+    <div class="blob red"></div>
+  </div>
+
+  <!-- Tutorial overlay -->
+  <div class="tutorial-overlay" id="tutorialOverlay">
+    <div class="tutorial-box">
+      <h2 id="tutTitle"></h2>
+      <p class="text" id="tutText"></p>
+      <div class="try-move hidden" id="tutMoveBox">
+        <p class="label">Try this move:</p>
+        <p class="key" id="tutMoveKey"></p>
+        <p class="hint">Press the key shown above</p>
+      </div>
+      <p class="instruction" id="tutInstruction"></p>
+      <button class="btn-skip" id="skipBtn" onclick="skipTutorial()">Skip Tutorial</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <h1>⚡ KEYBOARD WARRIOR ⚡</h1>
+
+    <!-- Arena -->
+    <div class="arena">
+      <div class="fighter">
+        <div class="avatar" id="playerAvatar">🧙‍♂️</div>
+        <h2>YOU</h2>
+        <div class="hp-bar player">
+          <div class="hp-fill player" id="playerHPBar" style="width:100%">100/100</div>
+        </div>
+        <div class="combo player" id="playerCombo">🔥 COMBO x2!</div>
+      </div>
+      <div class="fighter">
+        <div class="avatar" id="botAvatar">🧙‍♂️</div>
+        <h2>BOT</h2>
+        <div class="hp-bar bot">
+          <div class="hp-fill bot" id="botHPBar" style="width:100%">100/100</div>
+        </div>
+        <div class="combo bot" id="botCombo">💢 COMBO x2!</div>
+      </div>
+    </div>
+
+    <!-- Moves panel -->
+    <div class="moves-panel hidden" id="movesPanel">
+      <p>📚 Available Moves:</p>
+      <div class="moves-grid" id="movesGrid"></div>
+    </div>
+
+    <!-- Combat log -->
+    <div class="log-panel">
+      <h3>⚔️ BATTLE LOG:</h3>
+      <div id="logEntries"><p class="empty">Waiting for action...</p></div>
+    </div>
+
+    <!-- Game over -->
+    <div class="game-over hidden" id="gameOverPanel">
+      <h2 id="gameOverTitle"></h2>
+      <p class="msg" id="gameOverMsg"></p>
+      <p class="score" id="gameOverScore"></p>
+    </div>
+
+    <!-- Buttons -->
+    <div class="buttons">
+      <button class="btn-primary" id="resetBtn" onclick="resetGame()">🔄 Reset</button>
+    </div>
+
+    <!-- Instructions -->
+    <div class="instructions hidden" id="playInstructions">
+      <p>💡 Chain moves together for massive combo damage!</p>
+      <p>🎮 Press keys as fast as you can to win the battle</p>
+    </div>
+  </div>
+
+<script>
+  const MOVES = {
+    SPACE: { name: 'Jab',      damage: [5, 8],   icon: '💫', effect: 'punch' },
+    E:     { name: 'Kick',     damage: [8, 12],  icon: '🔥', effect: 'kick' },
+    C:     { name: 'Combo',    damage: [15, 20], icon: '⚡', effect: 'combo' },
+    ENTER: { name: 'Power',    damage: [12, 18], icon: '💥', effect: 'power' },
+    TAB:   { name: 'Spin',     damage: [10, 14], icon: '🌪️', effect: 'spin' },
+    CAPS:  { name: 'Ultimate', damage: [20, 30], icon: '🔴', effect: 'ultimate' },
+  };
+
+  const STANCE_EMOJI = {
+    idle: '🧙‍♂️', punch: '👊', kick: '🦵', combo: '💫',
+    power: '💥', spin: '🌪️', ultimate: '🔴',
+  };
+
+  const TUTORIAL_STEPS = [
+    { title: '⚡ KEYBOARD WARRIOR ⚡', text: 'Learn to master keyboard moves and defeat your opponent!', instruction: 'Press SPACE to continue', key: 'Space' },
+    { title: '🥊 MOVE 1: JAB', text: 'Press SPACE for a quick Jab attack. Damage: 5-8', instruction: 'Press SPACE to try it', key: 'Space', move: 'SPACE' },
+    { title: '🦵 MOVE 2: KICK', text: 'Press E for a powerful Kick. Damage: 8-12', instruction: 'Press E to try it', key: 'E', move: 'E' },
+    { title: '💫 MOVE 3: COMBO', text: 'Press C for an explosive Combo attack. Damage: 15-20', instruction: 'Press C to try it', key: 'C', move: 'C' },
+    { title: '✨ MOVE 4: POWER STRIKE', text: 'Press ENTER for a devastating Power Strike. Damage: 12-18', instruction: 'Press ENTER to try it', key: 'Enter', move: 'ENTER' },
+    { title: '🌀 MOVE 5: SPIN ATTACK', text: 'Press TAB for a spinning Spin Attack. Damage: 10-14', instruction: 'Press TAB to try it', key: 'Tab', move: 'TAB' },
+    { title: '🎮 READY FOR BATTLE?', text: 'You now know all 5 basic moves! Chain them together for massive combos!', instruction: 'Press SPACE to start fighting', key: 'Space' },
+  ];
+
+  let playerHP, botHP, gameStatus, tutorialStep, playerCombo, botCombo, combatLog;
+  let lastAttackTime = 0;
+  let botAttackCooldown = 0;
+  let playerStanceTimer = null;
+  let botStanceTimer = null;
+
+  const $ = id => document.getElementById(id);
+
+  function buildMovesGrid() {
+    $('movesGrid').innerHTML = Object.entries(MOVES).map(([key, m]) => `
+      <div class="move-card">
+        <p class="icon">${m.icon}</p>
+        <p class="key">[${key}]</p>
+        <p class="name">${m.name}</p>
+        <p class="dmg">+${m.damage[0]}-${m.damage[1]}</p>
+      </div>`).join('');
+  }
+
+  function render() {
+    $('playerHPBar').style.width = playerHP + '%';
+    $('playerHPBar').textContent = playerHP > 0 ? playerHP + '/100' : '';
+    $('botHPBar').style.width = botHP + '%';
+    $('botHPBar').textContent = botHP > 0 ? botHP + '/100' : '';
+
+    $('playerCombo').textContent = `🔥 COMBO x${playerCombo}!`;
+    $('playerCombo').classList.toggle('show', playerCombo > 1);
+    $('botCombo').textContent = `💢 COMBO x${botCombo}!`;
+    $('botCombo').classList.toggle('show', botCombo > 1);
+
+    const playing = gameStatus === 'playing';
+    $('movesPanel').classList.toggle('hidden', !playing);
+    $('playInstructions').classList.toggle('hidden', !playing);
+    $('tutorialOverlay').classList.toggle('hidden', gameStatus !== 'tutorial');
+    $('resetBtn').textContent = playing ? '🔄 Reset' : '🔄 Play Again';
+
+    const over = gameStatus === 'playerWins' || gameStatus === 'botWins';
+    $('gameOverPanel').classList.toggle('hidden', !over);
+    if (over) {
+      const won = gameStatus === 'playerWins';
+      $('gameOverTitle').textContent = won ? '🏆 VICTORY! 🏆' : '💀 DEFEAT! 💀';
+      $('gameOverMsg').textContent = won
+        ? 'You are the ultimate Keyboard Warrior!'
+        : 'The bot dominated your keyboard skills!';
+      $('gameOverScore').textContent = won
+        ? `Final Score: ${botHP === 0 ? 'PERFECT!' : 'Victory'}`
+        : 'Better luck next time!';
+    }
+  }
+
+  function renderTutorial() {
+    const step = TUTORIAL_STEPS[tutorialStep];
+    $('tutTitle').textContent = step.title;
+    $('tutText').textContent = step.text;
+    $('tutInstruction').textContent = step.instruction;
+    $('tutMoveBox').classList.toggle('hidden', !step.move);
+    if (step.move) $('tutMoveKey').textContent = `[${step.move}]`;
+    $('skipBtn').classList.toggle('hidden', tutorialStep !== 0);
+  }
+
+  function addLog(msg) {
+    combatLog.unshift(msg);
+    combatLog = combatLog.slice(0, 6);
+    $('logEntries').innerHTML = combatLog.map(l => `<p>${l}</p>`).join('');
+  }
+
+  function clearLog() {
+    combatLog = [];
+    $('logEntries').innerHTML = '<p class="empty">Waiting for action...</p>';
+  }
+
+  function setStance(who, stance) {
+    const avatar = $(who + 'Avatar');
+    avatar.textContent = STANCE_EMOJI[stance] || STANCE_EMOJI.idle;
+    avatar.classList.toggle('attacking', stance !== 'idle');
+  }
+
+  function randDamage(move) {
+    return Math.floor(Math.random() * (move.damage[1] - move.damage[0] + 1)) + move.damage[0];
+  }
+
+  function playerAttack(moveKey) {
+    const move = MOVES[moveKey];
+    playerCombo += 1;
+    const damage = Math.floor(randDamage(move) * (1 + playerCombo * 0.15));
+
+    setStance('player', move.effect);
+    clearTimeout(playerStanceTimer);
+    playerStanceTimer = setTimeout(() => setStance('player', 'idle'), 300);
+
+    botHP = Math.max(0, botHP - damage);
+    addLog(`${move.icon} You used ${move.name}! Damage: ${damage} (Combo x${playerCombo})`);
+    if (Math.random() > 0.5) botCombo = 0;
+
+    checkGameOver();
+    render();
+  }
+
+  function botAttack() {
+    const keys = Object.keys(MOVES);
+    const move = MOVES[keys[Math.floor(Math.random() * keys.length)]];
+    botCombo += 1;
+    const damage = Math.floor(randDamage(move) * (1 + botCombo * 0.12));
+
+    setStance('bot', move.effect);
+    clearTimeout(botStanceTimer);
+    botStanceTimer = setTimeout(() => setStance('bot', 'idle'), 300);
+
+    playerHP = Math.max(0, playerHP - damage);
+    addLog(`⚔️ Bot used ${move.name}! Damage: ${damage} (Combo x${botCombo})`);
+
+    checkGameOver();
+    render();
+  }
+
+  function checkGameOver() {
+    if (playerHP <= 0) {
+      gameStatus = 'botWins';
+      addLog('💀 YOU WERE DEFEATED!');
+    } else if (botHP <= 0) {
+      gameStatus = 'playerWins';
+      addLog('🏆 VICTORY! YOU ARE THE KEYBOARD WARRIOR!');
+    }
+  }
+
+  function keyToMove(e) {
+    if (e.code === 'Space') return 'SPACE';
+    if (e.key.toUpperCase() === 'E') return 'E';
+    if (e.key.toUpperCase() === 'C') return 'C';
+    if (e.code === 'Enter') return 'ENTER';
+    if (e.code === 'Tab') return 'TAB';
+    if (e.code === 'CapsLock') return 'CAPS';
+    return null;
+  }
+
+  window.addEventListener('keydown', (e) => {
+    if (gameStatus === 'tutorial') {
+      const step = TUTORIAL_STEPS[tutorialStep];
+      if (e.code === step.key || e.key.toUpperCase() === step.key) {
+        e.preventDefault();
+        if (tutorialStep === TUTORIAL_STEPS.length - 1) {
+          startFight();
+        } else {
+          tutorialStep += 1;
+          renderTutorial();
+        }
+      }
+      return;
+    }
+
+    if (gameStatus !== 'playing') return;
+
+    const now = Date.now();
+    if (now - lastAttackTime < 200) return;
+
+    const moveKey = keyToMove(e);
+    if (!moveKey) return;
+    e.preventDefault();
+    lastAttackTime = now;
+    playerAttack(moveKey);
+  });
+
+  // Bot AI loop
+  setInterval(() => {
+    if (gameStatus !== 'playing') return;
+    botAttackCooldown -= 100;
+    if (botAttackCooldown <= 0) {
+      if (Math.random() > 0.45) {
+        botAttack();
+        botAttackCooldown = 1200 + Math.random() * 800;
+      } else {
+        botCombo = 0;
+        botAttackCooldown = 600;
+        render();
+      }
+    }
+  }, 100);
+
+  function startFight() {
+    gameStatus = 'playing';
+    clearLog();
+    addLog('Fight started! Use all your keyboard moves!');
+    render();
+  }
+
+  function skipTutorial() {
+    startFight();
+  }
+
+  function resetGame() {
+    playerHP = 100;
+    botHP = 100;
+    gameStatus = 'tutorial';
+    tutorialStep = 0;
+    playerCombo = 0;
+    botCombo = 0;
+    botAttackCooldown = 0;
+    setStance('player', 'idle');
+    setStance('bot', 'idle');
+    clearLog();
+    renderTutorial();
+    render();
+  }
+
+  buildMovesGrid();
+  resetGame();
+</script>
+</body>
+</html>
